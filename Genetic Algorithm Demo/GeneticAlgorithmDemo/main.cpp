@@ -2,6 +2,7 @@
 #include <iostream>
 #include <time.h>
 #include <stdlib.h>
+#include <windows.h>
 
 using namespace std;
 
@@ -13,9 +14,12 @@ double y_fitness(int n);
 void y_pickChroms();
 void y_crossover();
 void y_mutation();
+void swapChrom(int i, int j);
 
 const int y_totalNodeNumber = 800; //每个个体中的基因节点个数，也就是节点数目
 const int y_totalGroupNumber = 4; //种群个体个数，如为n，表示当前种群中有n个个体参与繁衍和变异
+const float y_failRate = 0.5; //每一代的淘汰比率
+const float y_mutateRate = 0.4; //变异概率
 
 typedef struct Chrom                           // 结构体类型，为单个染色体的结构；
 {
@@ -51,9 +55,39 @@ void y_initiateGroups()
     }
 }
 
+int Partition(Chrom a[], int left, int right)///7行代码
+{
+    int i = left - 1;///初始化一定要赋值好。
+    for (int j = left;j <= right - 1;j++) {
+        if (a[j].fit > a[right].fit) {///把right这个作为轴了。
+            i++;///这个i坐标左边的值就是比a[right]小的。
+            swapChrom(i,j);///必须交换一下。
+        }
+    }
+    swapChrom(i+1,right);///最后把i+1和right交换，这样轴就是i+1了必须是保证i+1上当初就是作为标杆的a[right]啊。
+    return i + 1;
+}
+void Qsort(Chrom a[], int left, int right)
+{
+    if (left < right) {
+        int q = Partition(a, left, right);
+        Qsort(a, left, q - 1);
+        Qsort(a, q + 1, right);
+    }
+}
+void swapChrom(int i, int j){
+    chrom temp ;
+    temp             = y_groupNext[j];
+    y_groupNext[j]   = y_groupNext[i];
+    y_groupNext[i]   = temp;
+}
+
 //从种群中选出若干个体进行交叉、变异，这里采用排序法来选择，即每次选择都选出适应度最高的两个个体
 void y_pickChroms()
 {
+//    Qsort(y_groupNext, 0, y_totalGroupNumber);
+
+    //以下为冒泡法
     int i ,j;
     chrom temp ;                                // 中间变量
     int top = y_totalGroupNumber-1;
@@ -71,21 +105,38 @@ void y_pickChroms()
     }
 }
 
+
 void y_crossover()
 {
     srand(clock() + (unsigned)time(NULL));
     int random = rand() % y_totalNodeNumber;          // 随机产生交叉点,交叉点控制在0到y_totalGroupNumber之间；
-    int i ;
+    int lastParentIndex = (int)((1-y_failRate)*y_totalGroupNumber);
+    int i,k ;
     for(i=0; i<random; i++)
     {
-        y_groupNext[2].bit [i]= y_groupNext[0].bit [i];   // child 1 cross over
-        y_groupNext[3].bit [i]= y_groupNext[1].bit [i];   // child 2 cross over
+//        y_groupNext[2].bit [i]= y_groupNext[0].bit [i];   // child 1 cross over
+//        y_groupNext[3].bit [i]= y_groupNext[1].bit [i];   // child 2 cross over
+
+        //采取第一名和剩下的所有母节点进行繁殖的策略
+        k=1;
+        for(int j=0; j<lastParentIndex; j++){
+            y_groupNext[j+lastParentIndex].bit[i] = y_groupNext[0].bit[i];
+            y_groupNext[j+lastParentIndex+1].bit[i] = y_groupNext[k].bit[i];
+            k++;
+        }
     }
 
     for(i=random; i<y_totalNodeNumber; i++)         // crossing the bits beyond the cross point index
     {
-        y_groupNext[2].bit [i]= y_groupNext[1].bit [i];    // child 1 cross over
-        y_groupNext[3].bit [i]= y_groupNext[0].bit [i];    // chlid 2 cross over
+//        y_groupNext[2].bit [i]= y_groupNext[1].bit [i];    // child 1 cross over
+//        y_groupNext[3].bit [i]= y_groupNext[0].bit [i];    // chlid 2 cross over
+
+        k=1;
+        for(int j=0; j<lastParentIndex; j++){
+            y_groupNext[j+lastParentIndex].bit[i] = y_groupNext[k].bit[i];
+            y_groupNext[j+lastParentIndex+1].bit[i] = y_groupNext[0].bit[i];
+            k++;
+        }
     }
 
     for(i=0; i<y_totalGroupNumber; i++)
@@ -97,18 +148,20 @@ void y_crossover()
 void y_mutation()
 {
     int row ,col;
-    int random = rand ()%50;  // 随机产生到之间的数；
+    srand(clock() + (unsigned)time(NULL));
+    int random = rand ()%1000;  // 随机产生到之间的数；
+    int mutate = 1000*y_mutateRate;
     //变异操作也要遵从一定的概率来进行，一般设置为0到0.5之间
-    if(random >40)                              // random==25的概率只有2%，即变异率为，所以是以小概率进行变异！！
+    if(random < mutate)                              //变异率为y_mutate，所以是以小概率进行变异！！
     {
         col=rand()%y_totalNodeNumber;          // 随机产生要变异的基因位号；
         row=rand()%y_totalGroupNumber;         // 随机产生要变异的染色体号；
 
-        if(y_groupNext[row]. bit[col]==0)             // 1变为；
+        if(y_groupNext[row]. bit[col]==0)             // 1变为0；
         {
             y_groupNext[row].bit[col]=1 ;
         }
-        else if (y_groupNext[row].bit[col]==1)        // 0变为；
+        else if (y_groupNext[row].bit[col]==1)        // 0变为1；
         {
             y_groupNext[row].bit[col]=0;
         }
@@ -153,6 +206,7 @@ double y_fitness(int n)
 //        }
         sum += y_groupNext[n].bit[i];
     }
+    Sleep(5);
     return (double)sum;
 }
 
@@ -197,7 +251,6 @@ void y_startIterationByTime(int timeLimit)
             y_groupNext[j]=y_groupCurrent[j];           // 更新种群；
         }
 
-
         y_pickChroms();                    // 挑选优秀个体；
         //y_travelsal_next();
         y_crossover();                     // 交叉得到新个体；
@@ -215,13 +268,16 @@ int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
 
+    int starttime = clock();
+
     y_initiateGroups();
+    y_pickChroms();
     cout<<y_groupCurrent[0].fit<<endl;
-    //y_startIteration(5000000);
-    y_startIterationByTime(20000);
+    //y_startIteration(400);
+    y_startIterationByTime(85000);
 
-
-    cout<<y_groupCurrent[0].fit;
+    y_pickChroms();
+    cout<<y_groupNext[0].fit<<" Time: "<<clock()-starttime<<endl;
 
 
     return a.exec();
