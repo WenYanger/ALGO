@@ -16,10 +16,10 @@ void y_crossover();
 void y_mutation();
 void swapChrom(int i, int j);
 
-const int y_totalNodeNumber = 800; //每个个体中的基因节点个数，也就是节点数目
-const int y_totalGroupNumber = 4; //种群个体个数，如为n，表示当前种群中有n个个体参与繁衍和变异
+const int y_totalNodeNumber = 40; //每个个体中的基因节点个数，也就是节点数目
+const int y_totalGroupNumber = 80; //种群个体个数，如为n，表示当前种群中有n个个体参与繁衍和变异
 const float y_failRate = 0.5; //每一代的淘汰比率
-const float y_mutateRate = 0.4; //变异概率
+const float y_mutateRate = 0.05; //变异概率
 
 typedef struct Chrom                           // 结构体类型，为单个染色体的结构；
 {
@@ -106,12 +106,14 @@ void y_pickChroms()
 }
 
 
+
 void y_crossover()
 {
     srand(clock() + (unsigned)time(NULL));
     int random = rand() % y_totalNodeNumber;          // 随机产生交叉点,交叉点控制在0到y_totalGroupNumber之间；
     int lastParentIndex = (int)((1-y_failRate)*y_totalGroupNumber);
     int i,k ;
+
     for(i=0; i<random; i++)
     {
 //        y_groupNext[2].bit [i]= y_groupNext[0].bit [i];   // child 1 cross over
@@ -119,12 +121,13 @@ void y_crossover()
 
         //采取第一名和剩下的所有母节点进行繁殖的策略
         k=1;
-        for(int j=0; j<lastParentIndex; j++){
+        for(int j=0; j<lastParentIndex; j+=2){
             y_groupNext[j+lastParentIndex].bit[i] = y_groupNext[0].bit[i];
             y_groupNext[j+lastParentIndex+1].bit[i] = y_groupNext[k].bit[i];
-            k++;
+            k+=2;
         }
     }
+
 
     for(i=random; i<y_totalNodeNumber; i++)         // crossing the bits beyond the cross point index
     {
@@ -132,17 +135,19 @@ void y_crossover()
 //        y_groupNext[3].bit [i]= y_groupNext[0].bit [i];    // chlid 2 cross over
 
         k=1;
-        for(int j=0; j<lastParentIndex; j++){
+        for(int j=0; j<lastParentIndex; j+=2){
             y_groupNext[j+lastParentIndex].bit[i] = y_groupNext[k].bit[i];
             y_groupNext[j+lastParentIndex+1].bit[i] = y_groupNext[0].bit[i];
-            k++;
+            k+=2;
         }
     }
 
-    for(i=0; i<y_totalGroupNumber; i++)
+    //int starttime = clock();
+    for(i=lastParentIndex; i<y_totalGroupNumber; i++)
     {
         y_groupNext[i].fit= y_fitness(i);        // 为新个体计算适应度值；
     }
+    //cout<<clock()-starttime<<endl;
 }
 
 void y_mutation()
@@ -206,7 +211,6 @@ double y_fitness(int n)
 //        }
         sum += y_groupNext[n].bit[i];
     }
-    Sleep(5);
     return (double)sum;
 }
 
@@ -216,10 +220,10 @@ void y_startIteration(int num) //num为迭代次数
     for(int i=0; i<num; i++)                          // 开始迭代；
     {
         //cout<<"itr: "<<i<<endl;                 // 输出当前迭代次数；
-        for(int j=0; j<y_totalGroupNumber; j++)
-        {
-            y_groupNext[j]=y_groupCurrent[j];           // 更新种群；
-        }
+//        for(int j=0; j<y_totalGroupNumber; j++)
+//        {
+//            y_groupNext[j]=y_groupCurrent[j];           // 更新种群；
+//        }
 
 
         y_pickChroms();                    // 挑选优秀个体；
@@ -227,41 +231,47 @@ void y_startIteration(int num) //num为迭代次数
         y_crossover();                     // 交叉得到新个体；
         y_mutation();                      // 变异得到新个体；
 
-        for(int j=0; j<y_totalGroupNumber; j++)
-        {
-            y_groupCurrent[j]=y_groupNext[j];              // 种群更替；
-        }
+//        for(int j=0; j<y_totalGroupNumber; j++)
+//        {
+//            y_groupCurrent[j]=y_groupNext[j];              // 种群更替；
+//        }
 
         //cout<<y_groupCurrent[0].fit<<endl;
 
     }  // 等待迭代终止；
 }
-
 void y_startIterationByTime(int timeLimit)
 {
     int starttime = clock();
     int curtime = clock();
+    int itr = 0;
     while(1)
     {
         if(curtime - starttime >= timeLimit)
             break;
 
-        for(int j=0; j<y_totalGroupNumber; j++)
-        {
-            y_groupNext[j]=y_groupCurrent[j];           // 更新种群；
-        }
+//        for(int j=0; j<y_totalGroupNumber; j++)
+//        {
+//            y_groupNext[j]=y_groupCurrent[j];           // 更新种群；
+//        }
+        //int starttime1 = clock();
+
 
         y_pickChroms();                    // 挑选优秀个体；
         //y_travelsal_next();
         y_crossover();                     // 交叉得到新个体；
         y_mutation();                      // 变异得到新个体；
 
-        for(int j=0; j<y_totalGroupNumber; j++)
-        {
-            y_groupCurrent[j]=y_groupNext[j];              // 种群更替；
-        }
+        //cout<<clock()-starttime1<<endl;
+
+        itr++;
+//        for(int j=0; j<y_totalGroupNumber; j++)
+//        {
+//            y_groupCurrent[j]=y_groupNext[j];              // 种群更替；
+//        }
         curtime = clock();
     }
+    cout<<"iter: "<<itr<<endl;
 }
 
 int main(int argc, char *argv[])
@@ -273,12 +283,11 @@ int main(int argc, char *argv[])
     y_initiateGroups();
     y_pickChroms();
     cout<<y_groupCurrent[0].fit<<endl;
-    //y_startIteration(400);
-    y_startIterationByTime(85000);
+    //y_startIteration(1000000);
+    y_startIterationByTime(10000);
 
     y_pickChroms();
     cout<<y_groupNext[0].fit<<" Time: "<<clock()-starttime<<endl;
-
 
     return a.exec();
 }
